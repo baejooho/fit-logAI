@@ -1,0 +1,26 @@
+{
+  "name": "fit-logai",
+  "version": "1.0.0",
+  "description": "AI 운동 루틴 생성 CLI 앱",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "web": "ts-node src/web.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "chalk": "^4.1.2",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "inquirer": "^8.2.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/inquirer": "^8.2.10",
+    "@types/node": "^20.11.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
