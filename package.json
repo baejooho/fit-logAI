@@ -7,7 +7,13 @@
     "dev": "ts-node src/index.ts",
     "web": "ts-node src/web.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": ["**/*.test.ts"]
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
@@ -19,7 +25,12 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/inquirer": "^8.2.10",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.11.5",
+    "@types/supertest": "^7.2.0",
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }

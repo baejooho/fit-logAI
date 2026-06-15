@@ -1276,4 +1276,8 @@ app.delete('/history/:id', (req: Request, res: Response) => {
 });
 
 
-app.listen(PORT, () => { console.log(`\n  서버 실행 중: http://localhost:${PORT}\n`); });
+export { app };
+
+if (require.main === module) {
+  app.listen(PORT, () => { console.log(`\n  서버 실행 중: http://localhost:${PORT}\n`); });
+}

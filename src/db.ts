@@ -23,7 +23,7 @@ interface DbData {
   next_id: number;
 }
 
-const DB_PATH = path.join(process.cwd(), 'routines.json');
+const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'routines.json');
 
 function loadDb(): DbData {
   if (fs.existsSync(DB_PATH)) {
