@@ -549,7 +549,7 @@ textarea::placeholder { color: var(--sub); }
 
 <!-- 네비게이션 -->
 <nav class="nav">
-  <div class="nav-logo" onclick="resetToHome()" style="cursor:pointer">planfit<span>.</span>ai</div>
+  <div class="nav-logo" onclick="resetToHome()" style="cursor:pointer">fit-log<span>AI</span></div>
 </nav>
 
 <div class="main">
