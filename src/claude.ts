@@ -37,18 +37,18 @@ function getRepGuide(goal: string): string {
 }
 
 export async function generateRoutine(userInput: UserInput): Promise<WorkoutRoutine> {
-  const { goal, experience, days_per_week, focus_area, height, weight } = userInput;
+  const { goal, experience, days_per_week, focus_area, height, weight, extra_request } = userInput;
 
   const splitGuide = getSplitGuide(days_per_week, experience);
   const repGuide = getRepGuide(goal);
 
   const prompt = `당신은 전문 헬스 트레이너입니다. 아래 정보를 바탕으로 주간 운동 루틴을 생성해주세요.
-
+${extra_request ? `\n⚠️ 최우선 준수 요구사항 (절대 무시 불가, 루틴 전체에 반드시 반영):\n"${extra_request}"\n` : ''}
 사용자 정보:
 - 운동 목표: ${goal}
 - 경험 수준: ${experience}
 - 주당 운동 일수: ${days_per_week}일
-- 집중 부위: ${focus_area}${height && weight ? `\n- 키: ${height}cm / 몸무게: ${weight}kg (BMI: ${(weight / ((height / 100) ** 2)).toFixed(1)})` : ''}
+- 집중 부위: ${focus_area}${height && weight ? `\n- 키: ${height}cm / 몸무게: ${weight}kg (BMI: ${(weight / ((height / 100) ** 2)).toFixed(1)})` : ''}${extra_request ? `\n- 추가 요구사항: ${extra_request} ← 반드시 반영` : ''}
 
 분할 방식 (반드시 준수):
 ${splitGuide}
@@ -105,4 +105,84 @@ JSON 형식:
   } catch (error) {
     throw new Error(`JSON 파싱 오류: ${error}\n원본 응답: ${jsonText.slice(0, 200)}`);
   }
+}
+
+async function parseGeminiResponse(prompt: string, retries = 3): Promise<WorkoutRoutine> {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const result = await model.generateContent(prompt);
+      let jsonText = result.response.text().trim();
+      if (jsonText.startsWith('```json')) jsonText = jsonText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      else if (jsonText.startsWith('```')) jsonText = jsonText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+      return JSON.parse(jsonText) as WorkoutRoutine;
+    } catch (error: any) {
+      const is503 = error?.message?.includes('503') || error?.status === 503;
+      if (is503 && attempt < retries) {
+        await new Promise(r => setTimeout(r, 2000 * attempt));
+        continue;
+      }
+      if (error instanceof SyntaxError) {
+        throw new Error(`JSON 파싱 오류: ${error}`);
+      }
+      throw error;
+    }
+  }
+  throw new Error('최대 재시도 횟수 초과');
+}
+
+export async function generateNextWeekRoutine(
+  userInput: UserInput,
+  previousRoutine: WorkoutRoutine,
+  weekNumber: number,
+  previousWeights?: Record<string, number>
+): Promise<WorkoutRoutine> {
+  const { goal, experience, days_per_week, focus_area, height, weight, extra_request } = userInput;
+  const repGuide = getRepGuide(goal);
+
+  const weightsSection = previousWeights && Object.keys(previousWeights).length > 0
+    ? `\n이전 주 수행 중량 기록 (이 중량 기준으로 5~10% 증가 적용):\n${Object.entries(previousWeights).map(([k, v]) => `  - ${k}: ${v}kg`).join('\n')}\n`
+    : '';
+
+  const prompt = `당신은 전문 헬스 트레이너입니다. ${weekNumber}주차 점진적 과부하 루틴을 생성해주세요.
+${extra_request ? `\n⚠️ 최우선 준수 요구사항 (절대 무시 불가):\n"${extra_request}"\n` : ''}
+${weekNumber - 1}주차 루틴 (참고용):
+${JSON.stringify(previousRoutine, null, 2)}
+${weightsSection}
+사용자 정보:
+- 운동 목표: ${goal}
+- 경험 수준: ${experience}
+- 주당 운동 일수: ${days_per_week}일
+- 집중 부위: ${focus_area}${height && weight ? `\n- 키: ${height}cm / 몸무게: ${weight}kg` : ''}${extra_request ? `\n- 추가 요구사항: ${extra_request} ← 반드시 반영` : ''}
+
+점진적 과부하 규칙 (반드시 준수):
+- 이전 주와 동일한 운동 종목·분할 구성 유지
+- 각 운동의 세트수 또는 반복수를 5~10% 증가시키세요
+  예) 3×10 → 3×11 또는 4×10 / 4×8 → 4×9 또는 5×8
+- 이전 주 반복수가 이미 상한(예: 15회)에 달했다면 세트수를 늘리세요
+- 휴식 시간은 그대로 유지
+- ${weekNumber}주차임을 감안해 과도한 증가는 금물 (주당 총 볼륨 10% 이내 증가)
+
+세트/반복수 기준:
+${repGuide}
+
+일반 규칙:
+- 정확히 ${days_per_week}개의 day를 생성하세요
+- day_name은 이전 주와 동일한 요일로 배치하세요
+- focus, target_muscle은 이전 주와 동일하게 유지하세요
+${weightsSection ? `- 이전 주 수행 중량이 기록된 운동은 반드시 suggested_weight_kg 필드를 포함하세요 (2.5kg 단위 반올림)
+  예) 이전 주 60kg → suggested_weight_kg: 62.5` : ''}
+- 마크다운 코드블록 없이 순수 JSON만 출력하세요
+
+JSON 운동 예시 (suggested_weight_kg 포함):
+{
+  "name": "바벨 벤치프레스",
+  "sets": 4,
+  "reps": 10,
+  "rest_seconds": 90,
+  "target_muscle": "가슴",
+  "suggested_weight_kg": 62.5
+}`;
+
+  return parseGeminiResponse(prompt);
 }

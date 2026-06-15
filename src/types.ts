@@ -4,6 +4,7 @@ export interface Exercise {
   reps: number;
   rest_seconds: number;
   target_muscle: string;
+  suggested_weight_kg?: number;
 }
 
 export interface Day {
@@ -24,4 +25,5 @@ export interface UserInput {
   focus_area: string;
   height?: number;
   weight?: number;
+  extra_request?: string;
 }

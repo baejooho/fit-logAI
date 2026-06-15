@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
-import { generateRoutine } from './claude';
-import { saveRoutine } from './db';
+import { generateRoutine, generateNextWeekRoutine } from './claude';
+import { saveRoutine, getRoutines, getRoutine, updateRoutineName, updateRoutineWeights, deleteRoutine } from './db';
 import { UserInput, WorkoutRoutine } from './types';
 
 const app = express();
@@ -9,41 +9,6 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const MOCK_ROUTINE: WorkoutRoutine = {
-  split_type: 'PPL',
-  days: [
-    {
-      day_name: '월요일', focus: '가슴 / 어깨 / 삼두',
-      exercises: [
-        { name: '바벨 벤치프레스',      sets: 4, reps: 8,  rest_seconds: 90,  target_muscle: '가슴' },
-        { name: '인클라인 덤벨프레스',  sets: 3, reps: 10, rest_seconds: 75,  target_muscle: '상부 가슴' },
-        { name: '덤벨 숄더프레스',      sets: 3, reps: 12, rest_seconds: 60,  target_muscle: '어깨' },
-        { name: '케이블 레터럴레이즈',  sets: 3, reps: 15, rest_seconds: 45,  target_muscle: '측면 삼각근' },
-        { name: '트라이셉스 푸시다운',  sets: 3, reps: 12, rest_seconds: 60,  target_muscle: '삼두' },
-      ],
-    },
-    {
-      day_name: '수요일', focus: '등 / 이두',
-      exercises: [
-        { name: '바벨 데드리프트',      sets: 4, reps: 6,  rest_seconds: 120, target_muscle: '척추기립근' },
-        { name: '랫풀다운',            sets: 4, reps: 10, rest_seconds: 75,  target_muscle: '광배근' },
-        { name: '시티드 케이블 로우',   sets: 3, reps: 12, rest_seconds: 60,  target_muscle: '중부 등' },
-        { name: '덤벨 해머컬',         sets: 3, reps: 12, rest_seconds: 60,  target_muscle: '이두' },
-        { name: '페이스 풀',           sets: 3, reps: 15, rest_seconds: 45,  target_muscle: '후면 삼각근' },
-      ],
-    },
-    {
-      day_name: '금요일', focus: '하체 전체',
-      exercises: [
-        { name: '바벨 스쿼트',         sets: 4, reps: 8,  rest_seconds: 120, target_muscle: '대퇴사두' },
-        { name: '레그프레스',          sets: 3, reps: 12, rest_seconds: 90,  target_muscle: '대퇴사두' },
-        { name: '레그 익스텐션',       sets: 3, reps: 15, rest_seconds: 60,  target_muscle: '대퇴사두' },
-        { name: '레그 컬',            sets: 3, reps: 15, rest_seconds: 60,  target_muscle: '햄스트링' },
-        { name: '카프 레이즈',         sets: 4, reps: 20, rest_seconds: 45,  target_muscle: '종아리' },
-      ],
-    },
-  ],
-};
 
 const PAGE_HTML = `<!DOCTYPE html>
 <html lang="ko">
@@ -181,6 +146,107 @@ select:focus { border-color: var(--accent); }
 .bmi-cat { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 4px; }
 .bmi-msg { font-size: 0.75rem; color: var(--sub); margin-left: auto; }
 
+/* ── 추가 요구사항 ── */
+textarea {
+  width: 100%; padding: 0.75rem 1rem;
+  background: var(--card); border: 1.5px solid var(--border2);
+  border-radius: 10px; color: var(--text); font-size: 0.85rem;
+  font-family: inherit; outline: none; resize: vertical; min-height: 68px;
+  transition: border-color 0.15s; line-height: 1.6;
+}
+textarea:focus { border-color: var(--accent); }
+textarea::placeholder { color: var(--sub); }
+
+/* ── 이전 내역 패널 ── */
+.history-panel { margin-top: 1.5rem; }
+.history-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.9rem 1.2rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  cursor: pointer; transition: border-color 0.15s; user-select: none;
+}
+.history-toggle:hover { border-color: var(--border2); }
+.history-toggle.open { border-radius: 12px 12px 0 0; border-bottom-color: transparent; }
+.history-toggle-left { display: flex; align-items: center; gap: 0.6rem; }
+.history-title { font-size: 0.88rem; font-weight: 700; }
+.history-count { font-size: 0.7rem; color: var(--sub); background: var(--card); border: 1px solid var(--border2); padding: 0.1rem 0.5rem; border-radius: 20px; }
+.history-chevron { font-size: 0.7rem; color: var(--sub); transition: transform 0.2s; }
+.history-toggle.open .history-chevron { transform: rotate(180deg); }
+.history-list {
+  display: none; background: var(--surface);
+  border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 12px 12px; max-height: 280px; overflow-y: auto;
+}
+.history-list.open { display: block; animation: fadeIn 0.2s ease; }
+.history-item {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.75rem 1.2rem; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.12s;
+}
+.history-item:last-child { border-bottom: none; }
+.history-item:hover { background: var(--card); }
+.history-item.active { background: var(--accent-l); border-left: 3px solid var(--accent); padding-left: calc(1.2rem - 3px); }
+.history-date { font-size: 0.68rem; color: var(--sub); white-space: nowrap; min-width: 52px; }
+.history-meta { flex: 1; min-width: 0; }
+.history-name-row { display: flex; align-items: center; gap: 0.35rem; }
+.history-name { font-size: 0.85rem; font-weight: 700; outline: none; }
+.history-name[contenteditable="true"] { border-bottom: 1.5px solid var(--accent); padding-bottom: 1px; }
+.rename-btn, .delete-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.7rem; padding: 0.1rem 0.3rem; border-radius: 4px;
+  opacity: 0; pointer-events: none; transition: color 0.15s; line-height: 1;
+}
+.rename-btn { color: var(--sub); }
+.delete-btn { color: var(--sub); margin-left: auto; }
+.history-item:hover .rename-btn,
+.history-item:hover .delete-btn { opacity: 1; pointer-events: auto; }
+.rename-btn:hover { color: var(--accent); }
+.delete-btn:hover { color: #e8484a; }
+.history-tags { font-size: 0.7rem; color: var(--sub); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-today-badge { font-size: 0.6rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; background: var(--accent); color: #fff; flex-shrink: 0; }
+
+/* ── 저장 바 ── */
+.save-bar {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  margin-top: 1rem; padding: 0.9rem 1.2rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+}
+.save-bar-label { font-size: 0.78rem; color: var(--sub); flex: 1; min-width: 120px; }
+.routine-name-input {
+  flex: 1; min-width: 140px; max-width: 240px; padding: 0.5rem 0.75rem;
+  background: var(--card); border: 1.5px solid var(--border2);
+  border-radius: 8px; color: var(--text); font-size: 0.85rem;
+  font-family: inherit; outline: none; transition: border-color 0.15s;
+}
+.routine-name-input:focus { border-color: var(--accent); }
+.routine-name-input::placeholder { color: var(--sub); }
+.btn-save {
+  flex-shrink: 0; padding: 0.6rem 1.1rem;
+  background: var(--accent); border: none; border-radius: 8px;
+  color: #fff; font-size: 0.85rem; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.btn-save:hover { background: var(--accent-d); }
+.btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+.save-done-check { color: #66bb6a; font-weight: 800; font-size: 1rem; }
+.save-done-name { font-weight: 700; }
+.save-done-sub { font-size: 0.78rem; color: var(--sub); }
+
+/* ── 무게 입력 ── */
+.ex-weight-row { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.6rem; }
+.weight-input {
+  width: 64px; padding: 0.28rem 0.4rem;
+  background: var(--card2); border: 1.5px solid var(--border2);
+  border-radius: 6px; color: var(--text); font-size: 0.85rem; font-weight: 700;
+  font-family: inherit; outline: none; text-align: center;
+  -moz-appearance: textfield; transition: border-color 0.15s;
+}
+.weight-input::-webkit-inner-spin-button,
+.weight-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.weight-input:focus { border-color: var(--accent); }
+.weight-input::placeholder { color: var(--sub); font-weight: 400; font-size: 0.72rem; }
+.weight-unit { font-size: 0.7rem; color: var(--sub); }
+
 /* ── 기대효과 미리보기 ── */
 .effect-preview {
   display: none; margin-top: 1rem;
@@ -245,11 +311,6 @@ select:focus { border-color: var(--accent); }
   padding: 0.3rem 0.85rem; border-radius: 20px;
   background: var(--accent-l); border: 1px solid rgba(232,72,74,0.3);
   color: var(--accent); font-size: 0.78rem; font-weight: 700;
-}
-.demo-chip {
-  padding: 0.3rem 0.75rem; border-radius: 20px;
-  background: rgba(255,255,255,0.05); border: 1px solid var(--border2);
-  color: var(--sub); font-size: 0.72rem; font-weight: 600;
 }
 .save-chip { margin-left: auto; font-size: 0.75rem; color: var(--sub); }
 
@@ -488,7 +549,7 @@ select:focus { border-color: var(--accent); }
 
 <!-- 네비게이션 -->
 <nav class="nav">
-  <div class="nav-logo">planfit<span>.</span>ai <span class="nav-badge">demo</span></div>
+  <div class="nav-logo" onclick="resetToHome()" style="cursor:pointer">planfit<span>.</span>ai</div>
 </nav>
 
 <div class="main">
@@ -542,8 +603,8 @@ select:focus { border-color: var(--accent); }
       <div class="field-group">
         <label class="field-label">주당 운동 일수</label>
         <select name="days_per_week" id="daysSelect">
-          <option value="2">주 2일</option><option value="3">주 3일</option>
-          <option value="4" selected>주 4일</option><option value="5">주 5일</option>
+          <option value="2">주 2일</option><option value="3" selected>주 3일</option>
+          <option value="4">주 4일</option><option value="5">주 5일</option>
           <option value="6">주 6일</option><option value="7">주 7일</option>
         </select>
       </div>
@@ -573,9 +634,13 @@ select:focus { border-color: var(--accent); }
           <span class="bmi-msg" id="bmiMsg"></span>
         </div>
       </div>
+      <div class="field-group">
+        <label class="field-label">추가 요구사항 <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.62rem;color:var(--sub)">(선택)</span></label>
+        <textarea name="extra_request" id="extraRequest" placeholder="예) 무릎 부상으로 스쿼트 대신 다른 운동으로 대체해줘 / 집에서 덤벨만 사용 / 풀업바 없음 / 허리 디스크 있음"></textarea>
+      </div>
       <div class="form-actions">
-        <button type="submit" class="btn-primary" id="submitBtn">루틴 생성하기</button>
-        <button type="button" class="btn-ghost"   id="demoBtn">데모 보기</button>
+        <button type="submit" class="btn-primary" id="submitBtn">새 루틴 생성하기</button>
+        <button type="button" class="btn-ghost" id="nextWeekFormBtn" style="display:none">다음 주 루틴 생성하기</button>
       </div>
       <div class="effect-preview" id="effectPreview">
         <div class="effect-label">이 루틴의 기대효과</div>
@@ -593,6 +658,32 @@ select:focus { border-color: var(--accent); }
 
   <!-- 결과 -->
   <div id="results"></div>
+
+  <!-- 저장 바 -->
+  <div id="saveBar" style="display:none">
+    <div id="saveNotSaved" class="save-bar">
+      <span class="save-bar-label">저장하면 이전 루틴 목록에서 불러올 수 있어요</span>
+      <input type="text" id="routineNameInput" class="routine-name-input" placeholder="루틴 이름 (선택)">
+      <button id="saveBtnEl" class="btn-save" onclick="saveCurrentRoutine()">저장하기</button>
+    </div>
+    <div id="saveDone" class="save-bar" style="display:none">
+      <span class="save-done-check">✓</span>
+      <span class="save-done-sub">저장 완료 ·</span>
+      <span id="savedRoutineName" class="save-done-name"></span>
+    </div>
+  </div>
+
+  <!-- 이전 루틴 이어하기 (하단) -->
+  <div class="history-panel" id="historySection" style="display:none">
+    <div class="history-toggle" id="historyToggle" onclick="toggleHistoryList()">
+      <div class="history-toggle-left">
+        <span class="history-title">이 루틴 저장하여 이어하기</span>
+        <span class="history-count" id="historyCount"></span>
+      </div>
+      <span class="history-chevron">▼</span>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
 </div>
 
 <script>
@@ -699,6 +790,7 @@ function openModal(name, key, sets, reps, rest) {
 }
 
 document.addEventListener('click', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
   var card = e.target.closest('.ex-card');
   if (card) {
     openModal(card.dataset.name, card.dataset.key, +card.dataset.sets, +card.dataset.reps, +card.dataset.rest);
@@ -714,7 +806,125 @@ function switchDay(idx) {
   document.querySelectorAll('.day-panel').forEach(function(p, i) { p.classList.toggle('active', i === idx); });
 }
 
-function buildHTML(routine, savedId, isDemo) {
+var _lastInput = null;
+var _lastRoutine = null;
+var _currentWeek = 1;
+var _activeHistoryId = null;
+var _lastWeights = null;
+
+function toggleHistoryList() {
+  document.getElementById('historyToggle').classList.toggle('open');
+  document.getElementById('historyList').classList.toggle('open');
+}
+
+function formatDate(iso) {
+  var d = new Date(iso);
+  return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function getTodayTabIndex(routine) {
+  var days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  var today = days[new Date().getDay()];
+  var idx = routine.days.findIndex(function(d) { return d.day_name === today; });
+  return idx >= 0 ? idx : 0;
+}
+
+function prefillForm(record) {
+  var f = document.getElementById('form');
+  var g = f.querySelector('input[name="goal"][value="' + record.goal + '"]');
+  if (g) g.checked = true;
+  var e = f.querySelector('input[name="experience"][value="' + record.experience + '"]');
+  if (e) e.checked = true;
+  document.getElementById('daysSelect').value = String(record.days_per_week);
+  var fa = f.querySelector('input[name="focus_area"][value="' + (record.focus_area || '전신') + '"]');
+  if (fa) fa.checked = true;
+  document.getElementById('heightInput').value = record.height || '';
+  document.getElementById('weightInput').value = record.body_weight || '';
+  document.getElementById('extraRequest').value = record.extra_request || '';
+  updateBMI();
+  updateEffect();
+}
+
+function loadHistoryRecord(record, autoScroll) {
+  _activeHistoryId = record.id;
+  _lastRoutine = record.routine;
+  _lastWeights = record.weights || null;
+  _currentWeek = 1;
+  _lastInput = { goal: record.goal, experience: record.experience, days_per_week: record.days_per_week, focus_area: record.focus_area || '전신' };
+
+  document.querySelectorAll('.history-item').forEach(function(el) {
+    el.classList.toggle('active', +el.dataset.id === record.id);
+  });
+
+  prefillForm(record);
+  document.getElementById('nextWeekFormBtn').style.display = '';
+  document.getElementById('saveBar').style.display = 'none';
+
+  var results = document.getElementById('results');
+  results.innerHTML = buildHTML(record.routine, record.id, 1, record.name, record.weights);
+  results.style.display = 'block';
+
+  var todayIdx = getTodayTabIndex(record.routine);
+  switchDay(todayIdx);
+
+  if (autoScroll) results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function fetchAndLoadRecord(id, silent) {
+  try {
+    var res = await fetch('/history/' + id);
+    var data = await res.json();
+    if (data.record) loadHistoryRecord(data.record, !silent);
+  } catch(e) {}
+}
+
+async function loadHistoryItems(autoLoadFirst) {
+  try {
+    var res = await fetch('/history');
+    var data = await res.json();
+    var section = document.getElementById('historySection');
+    if (!data.records || data.records.length === 0) return;
+    section.style.display = 'block';
+    document.getElementById('historyCount').textContent = data.records.length + '개';
+    var days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+    var todayName = days[new Date().getDay()];
+    document.getElementById('historyList').innerHTML = data.records.map(function(r) {
+      var hasToday = r.days && r.days.some(function(d) { return d.day_name === todayName; });
+      var isActive = r.id === _activeHistoryId;
+      var displayName = r.name || r.split_type;
+      return '<div class="history-item' + (isActive ? ' active' : '') + '" data-id="' + r.id + '" onclick="fetchAndLoadRecord(' + r.id + ', false)">'
+        + '<div class="history-date">' + formatDate(r.created_at) + '</div>'
+        + '<div class="history-meta">'
+        +   '<div class="history-name-row">'
+        +     '<span class="history-name" id="hname-' + r.id + '">' + displayName + '</span>'
+        +     '<button class="rename-btn" onclick="startRename(event,' + r.id + ')">✏</button>'
+        +   '</div>'
+        +   '<div class="history-tags">' + r.split_type + ' · ' + r.goal + ' · 주 ' + r.days_per_week + '일</div>'
+        + '</div>'
+        + (hasToday ? '<span class="history-today-badge">오늘</span>' : '')
+        + '<button class="delete-btn" onclick="deleteRecord(event,' + r.id + ')" title="삭제">✕</button>'
+        + '</div>';
+    }).join('');
+    if (autoLoadFirst) fetchAndLoadRecord(data.records[0].id, true);
+  } catch(e) {}
+}
+
+async function loadHistory() {
+  await loadHistoryItems(true);
+}
+
+async function generateNextWeekFromForm() {
+  if (!_lastRoutine) return;
+  _currentWeek++;
+  _lastInput = getFormInput();
+  var btn = document.getElementById('nextWeekFormBtn');
+  btn.disabled = true; btn.textContent = '생성 중...';
+  await callAPI('/generate-next', Object.assign({}, _lastInput, { previous_routine: _lastRoutine, week_number: _currentWeek, previous_weights: _lastWeights }));
+  btn.disabled = false; btn.textContent = '다음 주 루틴 생성하기';
+}
+
+function buildHTML(routine, savedId, weekNum, routineName, weights) {
+  weekNum = weekNum || 1;
   var tabs = routine.days.map(function(d, i) {
     return '<button class="day-tab' + (i === 0 ? ' active' : '') + '" onclick="switchDay(' + i + ')">' + d.day_name + '</button>';
   }).join('');
@@ -728,6 +938,11 @@ function buildHTML(routine, savedId, isDemo) {
       var info = EQUIP[key];
       var el   = document.getElementById(info.svgId);
       var svg  = el ? el.outerHTML : '';
+      var recordedWeight = weights && weights[ex.name] ? weights[ex.name] : null;
+      var suggestedWeight = ex.suggested_weight_kg || null;
+      var weightVal = recordedWeight !== null ? recordedWeight : (suggestedWeight !== null ? suggestedWeight : '');
+      var weightPlaceholder = suggestedWeight && !recordedWeight ? '추천 ' + suggestedWeight + 'kg' : '수행 무게';
+      var weightRow = '<div class="ex-weight-row"><input type="number" class="weight-input" data-key="' + escAttr(ex.name) + '" data-routine-id="' + (savedId || '') + '" placeholder="' + weightPlaceholder + '" value="' + weightVal + '" min="0" step="0.5" onblur="saveWeight(this)"><span class="weight-unit">kg</span></div>';
       return '<div class="ex-card" data-name="' + escAttr(ex.name) + '" data-key="' + key + '" data-sets="' + ex.sets + '" data-reps="' + ex.reps + '" data-rest="' + ex.rest_seconds + '">'
         + '<div class="ex-illust">' + svg + '<div class="ex-illust-lbl">' + info.label + '</div></div>'
         + '<div class="ex-info">'
@@ -738,6 +953,7 @@ function buildHTML(routine, savedId, isDemo) {
         +     '<div class="param-sep">&times;</div>'
         +     '<div class="param-block"><div class="param-val">' + ex.reps + '</div><div class="param-lbl">반복</div></div>'
         +   '</div>'
+        +   weightRow
         + '</div>'
         + '<div class="ex-rest"><div class="ex-rest-val">' + ex.rest_seconds + 's</div><div class="ex-rest-lbl">휴식</div></div>'
         + '</div>';
@@ -756,10 +972,10 @@ function buildHTML(routine, savedId, isDemo) {
       + '</div>';
   }).join('');
 
-  var demoBadge = isDemo ? '<span class="demo-chip">DEMO</span>' : '';
-  var saveBadge = isDemo ? '' : '<span class="save-chip">저장 ID: ' + savedId + '</span>';
+  var weekBadge = '<span class="split-chip" style="background:rgba(255,255,255,0.05);border-color:var(--border2);color:var(--sub)">' + weekNum + '주차</span>';
+  var nameBadge = routineName ? '<span class="save-chip">' + routineName + '</span>' : '';
 
-  return '<div class="routine-header"><span class="split-chip">● ' + routine.split_type + '</span>' + demoBadge + saveBadge + '</div>'
+  return '<div class="routine-header"><span class="split-chip">● ' + routine.split_type + '</span>' + weekBadge + nameBadge + '</div>'
     + '<div class="day-tabs">' + tabs + '</div>'
     + panels
     + '<p style="margin-top:1.5rem;font-size:0.72rem;color:var(--sub);text-align:center">운동 카드를 클릭하면 기구 사용 안내를 볼 수 있습니다</p>';
@@ -767,24 +983,29 @@ function buildHTML(routine, savedId, isDemo) {
 
 async function callAPI(url, body) {
   var btn     = document.getElementById('submitBtn');
-  var demoBtn = document.getElementById('demoBtn');
   var loading = document.getElementById('loading');
   var results = document.getElementById('results');
   var errorBox = document.getElementById('errorBox');
-  btn.disabled = true; demoBtn.disabled = true;
+  btn.disabled = true;
   loading.style.display = 'block'; results.style.display = 'none'; errorBox.style.display = 'none';
   try {
     var res  = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     var data = await res.json();
     if (!data.success) throw new Error(data.error);
-    results.innerHTML = buildHTML(data.routine, data.savedId, data.isDemo);
+    var weekNum = data.weekNumber || _currentWeek;
+    results.innerHTML = buildHTML(data.routine, data.savedId, weekNum);
     results.style.display = 'block';
     results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    _lastRoutine = data.routine;
+    document.getElementById('saveBar').style.display = 'block';
+    document.getElementById('saveNotSaved').style.display = 'flex';
+    document.getElementById('saveDone').style.display = 'none';
+    document.getElementById('routineNameInput').value = '';
   } catch (err) {
     errorBox.textContent = '오류: ' + err.message;
     errorBox.style.display = 'block';
   } finally {
-    btn.disabled = false; demoBtn.disabled = false; loading.style.display = 'none';
+    btn.disabled = false; loading.style.display = 'none';
   }
 }
 
@@ -794,20 +1015,162 @@ document.getElementById('heightInput').addEventListener('input', updateBMI);
 document.getElementById('weightInput').addEventListener('input', updateBMI);
 updateEffect();
 
+function getFormInput() {
+  return {
+    goal: document.querySelector('input[name="goal"]:checked').value,
+    experience: document.querySelector('input[name="experience"]:checked').value,
+    days_per_week: parseInt(document.getElementById('daysSelect').value, 10),
+    focus_area: document.querySelector('input[name="focus_area"]:checked').value,
+    height: document.getElementById('heightInput').value ? parseFloat(document.getElementById('heightInput').value) : undefined,
+    weight: document.getElementById('weightInput').value ? parseFloat(document.getElementById('weightInput').value) : undefined,
+    extra_request: document.getElementById('extraRequest').value.trim() || undefined,
+  };
+}
+
 document.getElementById('form').addEventListener('submit', function(e) {
   e.preventDefault();
-  var f = e.target;
-  var body = {
-    goal: f.goal.value,
-    experience: f.experience.value,
-    days_per_week: parseInt(f.days_per_week.value),
-    focus_area: f.focus_area.value,
-    height: f.height.value ? parseFloat(f.height.value) : undefined,
-    weight: f.weight.value ? parseFloat(f.weight.value) : undefined,
-  };
-  callAPI('/generate', body);
+  _currentWeek = 1;
+  _activeHistoryId = null;
+  _lastInput = getFormInput();
+  document.getElementById('nextWeekFormBtn').style.display = 'none';
+  document.getElementById('saveBar').style.display = 'none';
+  document.querySelectorAll('.history-item').forEach(function(el) { el.classList.remove('active'); });
+  callAPI('/generate', _lastInput);
 });
-document.getElementById('demoBtn').addEventListener('click', function() { callAPI('/demo', {}); });
+
+async function saveWeight(input) {
+  var key = input.dataset.key;
+  var routineId = input.dataset.routineId;
+  var val = parseFloat(input.value);
+  if (!key || isNaN(val) || val <= 0) return;
+  if (!_lastWeights) _lastWeights = {};
+  _lastWeights[key] = val;
+  if (!routineId) return;
+  try {
+    await fetch('/history/' + routineId + '/weights', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: val }),
+    });
+  } catch(e) {}
+}
+
+function resetToHome() {
+  _lastInput = null; _lastRoutine = null; _currentWeek = 1;
+  _activeHistoryId = null; _lastWeights = null;
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('saveBar').style.display = 'none';
+  document.getElementById('nextWeekFormBtn').style.display = 'none';
+  document.querySelectorAll('.history-item').forEach(function(el) { el.classList.remove('active'); });
+  var f = document.getElementById('form');
+  f.querySelector('input[name="goal"][value="벌크업"]').checked = true;
+  f.querySelector('input[name="experience"][value="초보"]').checked = true;
+  document.getElementById('daysSelect').value = '3';
+  f.querySelector('input[name="focus_area"][value="전신"]').checked = true;
+  document.getElementById('heightInput').value = '';
+  document.getElementById('weightInput').value = '';
+  document.getElementById('extraRequest').value = '';
+  document.getElementById('bmiBar').classList.remove('show');
+  document.getElementById('expGuide').classList.remove('open');
+  document.getElementById('expInfoBtn').classList.remove('active');
+  updateEffect();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function saveCurrentRoutine() {
+  if (!_lastRoutine || !_lastInput) return;
+  var btn = document.getElementById('saveBtnEl');
+  var name = document.getElementById('routineNameInput').value.trim();
+  btn.disabled = true; btn.textContent = '저장 중...';
+  try {
+    var res = await fetch('/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({}, _lastInput, {
+        routine: _lastRoutine,
+        week_number: _currentWeek,
+        name: name || undefined,
+      })),
+    });
+    var data = await res.json();
+    if (data.success) {
+      _activeHistoryId = data.savedId;
+      if (_lastWeights && Object.keys(_lastWeights).length > 0) {
+        fetch('/history/' + data.savedId + '/weights', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(_lastWeights),
+        }).catch(function(){});
+      }
+      document.getElementById('saveNotSaved').style.display = 'none';
+      document.getElementById('saveDone').style.display = 'flex';
+      document.getElementById('savedRoutineName').textContent = data.name;
+      loadHistoryItems(false);
+      fetchAndLoadRecord(data.savedId, false);
+    } else {
+      btn.disabled = false; btn.textContent = '저장하기';
+    }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '저장하기';
+  }
+}
+
+function startRename(event, id) {
+  event.stopPropagation();
+  var nameEl = document.getElementById('hname-' + id);
+  if (!nameEl || nameEl.contentEditable === 'true') return;
+  var oldName = nameEl.textContent;
+  nameEl.contentEditable = 'true';
+  nameEl.focus();
+  var range = document.createRange();
+  range.selectNodeContents(nameEl);
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  nameEl.dataset.old = oldName;
+  nameEl.onblur = function() { commitRename(id, nameEl); };
+  nameEl.onkeydown = function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); }
+    if (e.key === 'Escape') { nameEl.textContent = oldName; nameEl.contentEditable = 'false'; nameEl.onblur = null; }
+  };
+}
+
+async function deleteRecord(event, id) {
+  event.stopPropagation();
+  if (!confirm('이 루틴을 삭제하시겠어요?')) return;
+  try {
+    await fetch('/history/' + id, { method: 'DELETE' });
+    if (_activeHistoryId === id) {
+      _activeHistoryId = null;
+      _lastRoutine = null;
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('saveBar').style.display = 'none';
+      document.getElementById('nextWeekFormBtn').style.display = 'none';
+    }
+    loadHistoryItems(false);
+  } catch(e) {}
+}
+
+async function commitRename(id, el) {
+  el.contentEditable = 'false';
+  el.onblur = null;
+  el.onkeydown = null;
+  var name = el.textContent.trim();
+  if (!name) { el.textContent = el.dataset.old; return; }
+  try {
+    await fetch('/history/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+  } catch(e) {
+    el.textContent = el.dataset.old;
+  }
+}
+
+document.getElementById('nextWeekFormBtn').addEventListener('click', generateNextWeekFromForm);
+
+document.addEventListener('DOMContentLoaded', loadHistory);
 </script>
 </body>
 </html>`;
@@ -823,17 +1186,94 @@ app.post('/generate', async (req: Request, res: Response) => {
       focus_area: req.body.focus_area || '전신',
       height: req.body.height ? parseFloat(req.body.height) : undefined,
       weight: req.body.weight ? parseFloat(req.body.weight) : undefined,
+      extra_request: req.body.extra_request || undefined,
     };
     const routine = await generateRoutine(userInput);
-    const savedId = saveRoutine(userInput, routine);
-    res.json({ success: true, routine, savedId, isDemo: false });
+    res.json({ success: true, routine });
   } catch (error) {
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : '오류가 발생했습니다.' });
   }
 });
 
-app.post('/demo', (_req: Request, res: Response) => {
-  res.json({ success: true, routine: MOCK_ROUTINE, savedId: 0, isDemo: true });
+app.post('/generate-next', async (req: Request, res: Response) => {
+  try {
+    const userInput: UserInput = {
+      goal: req.body.goal,
+      experience: req.body.experience,
+      days_per_week: parseInt(req.body.days_per_week, 10),
+      focus_area: req.body.focus_area || '전신',
+      height: req.body.height ? parseFloat(req.body.height) : undefined,
+      weight: req.body.weight ? parseFloat(req.body.weight) : undefined,
+      extra_request: req.body.extra_request || undefined,
+    };
+    const previousRoutine: WorkoutRoutine = req.body.previous_routine;
+    const weekNumber: number = parseInt(req.body.week_number, 10) || 2;
+    const previousWeights: Record<string, number> | undefined = req.body.previous_weights || undefined;
+    const routine = await generateNextWeekRoutine(userInput, previousRoutine, weekNumber, previousWeights);
+    res.json({ success: true, routine, weekNumber });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : '오류가 발생했습니다.' });
+  }
 });
+
+app.patch('/history/:id/weights', (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id), 10);
+  const weights: Record<string, number> = req.body;
+  if (!weights || typeof weights !== 'object') return res.status(400).json({ error: 'weights required' });
+  const ok = updateRoutineWeights(id, weights);
+  res.json({ success: ok });
+});
+
+app.post('/save', async (req: Request, res: Response) => {
+  try {
+    const userInput: UserInput = {
+      goal: req.body.goal,
+      experience: req.body.experience,
+      days_per_week: parseInt(req.body.days_per_week, 10),
+      focus_area: req.body.focus_area || '전신',
+      height: req.body.height ? parseFloat(req.body.height) : undefined,
+      weight: req.body.weight ? parseFloat(req.body.weight) : undefined,
+      extra_request: req.body.extra_request || undefined,
+    };
+    const routine: WorkoutRoutine = req.body.routine;
+    const name: string | undefined = req.body.name || undefined;
+    const savedId = saveRoutine(userInput, routine, name);
+    const record = getRoutine(savedId);
+    res.json({ success: true, savedId, name: record?.name ?? name ?? '' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : '오류가 발생했습니다.' });
+  }
+});
+
+app.get('/history', (_req: Request, res: Response) => {
+  const records = getRoutines().map(r => ({
+    id: r.id, name: r.name, goal: r.goal, experience: r.experience,
+    days_per_week: r.days_per_week, focus_area: r.focus_area,
+    split_type: r.split_type, created_at: r.created_at,
+    days: r.routine.days.map((d: any) => ({ day_name: d.day_name })),
+  }));
+  res.json({ records });
+});
+
+app.get('/history/:id', (req: Request, res: Response) => {
+  const record = getRoutine(parseInt(String(req.params.id), 10));
+  if (!record) return res.status(404).json({ error: 'Not found' });
+  res.json({ record });
+});
+
+app.patch('/history/:id', (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id), 10);
+  const name: string = req.body.name;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const ok = updateRoutineName(id, name);
+  res.json({ success: ok });
+});
+
+app.delete('/history/:id', (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id), 10);
+  const ok = deleteRoutine(id);
+  res.json({ success: ok });
+});
+
 
 app.listen(PORT, () => { console.log(`\n  서버 실행 중: http://localhost:${PORT}\n`); });
