@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FitLog AI — 최종발표</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Space+Grotesk:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --card: #1c1c27;
+    --border: rgba(255,255,255,0.08);
+    --accent: #6C63FF;
+    --accent2: #00D4AA;
+    --accent3: #FF6B6B;
+    --text: #f0f0f8;
+    --muted: #8888aa;
+    --done: #00D4AA;
+    --wip: #FFB347;
+    --todo: #555570;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── SLIDES ── */
+  .slides { width:100%; height:100vh; position:relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 48px 72px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  .slide.active { opacity:1; pointer-events:all; }
+
+  /* ── NAV ── */
+  .nav {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 100;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    border: 1px solid var(--muted);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .dot.active { background: var(--accent); border-color: var(--accent); transform: scale(1.3); }
+
+  .nav-btn {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(108,99,255,0.15);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    font-size: 21px;
+    cursor: pointer;
+    z-index: 100;
+    transition: background 0.2s;
+  }
+  .nav-btn:hover { background: rgba(108,99,255,0.35); }
+  #prev { left: 16px; }
+  #next { right: 16px; }
+
+  /* ── SLIDE COUNTER ── */
+  .counter {
+    position: fixed;
+    top: 20px;
+    right: 28px;
+    font-size: 18px;
+    color: var(--muted);
+    font-family: 'Space Grotesk', sans-serif;
+    z-index: 100;
+  }
+
+  /* ── SLIDE 1: TITLE ── */
+  #s1 { background: radial-gradient(ellipse at 30% 40%, rgba(108,99,255,0.18) 0%, transparent 60%), var(--bg); }
+
+  .tag {
+    font-size: 15px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(108,99,255,0.4);
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 28px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .title-main {
+    font-size: clamp(52px, 7vw, 88px);
+    font-weight: 900;
+    line-height: 1.0;
+    letter-spacing: -2px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .title-main span { color: var(--accent); }
+
+  .title-sub {
+    font-size: 21px;
+    color: var(--muted);
+    text-align: center;
+    font-weight: 300;
+    margin-bottom: 48px;
+  }
+
+  .chips { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 19px;
+    color: var(--muted);
+  }
+  .chip b { color: var(--text); }
+
+  /* ── SLIDE 2: VISION ── */
+  #s2 { align-items: flex-start; }
+
+  .slide-header {
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 40px;
+    font-family: 'Space Grotesk', sans-serif;
+    align-self: flex-start;
+  }
+
+  .vision-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+    margin-bottom: 28px;
+  }
+
+  .vision-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .vision-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+  .vision-card.problem::before { background: var(--accent3); }
+  .vision-card.solution::before { background: var(--accent2); }
+
+  .vc-icon { font-size: 36px; margin-bottom: 14px; }
+  .vc-title { font-size: 21px; font-weight: 700; margin-bottom: 10px; }
+  .vc-body { font-size: 19px; color: var(--muted); line-height: 1.7; }
+  .vc-body strong { color: var(--text); }
+
+  .vision-stat {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    width: 100%;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-num { font-size: 36px; font-weight: 900; font-family: 'Space Grotesk', sans-serif; }
+  .stat-num.a1 { color: var(--accent); }
+  .stat-num.a2 { color: var(--accent2); }
+  .stat-num.a3 { color: var(--accent3); }
+  .stat-label { font-size: 15px; color: var(--muted); margin-top: 4px; }
+
+  /* ── SLIDE 3: ARCHITECTURE ── */
+  #s3 { align-items: flex-start; }
+
+  .mermaid-wrap {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-top: 8px;
+  }
+
+  .mermaid svg { max-width: 100% !important; }
+
+  /* ── SLIDE 4: WBS ── */
+  #s4 { align-items: flex-start; justify-content: flex-start; padding-top: 40px; }
+
+  .wbs-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    width: 100%;
+    margin-top: 16px;
+  }
+
+  .week-col { display: flex; flex-direction: column; gap: 10px; }
+
+  .week-header {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-weight: 700;
+    font-size: 19px;
+    text-align: center;
+  }
+  .week-header span { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+
+  .task {
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 15px;
+    line-height: 1.5;
+    border-left: 3px solid transparent;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .task.done {
+    border-left-color: var(--done);
+    background: rgba(0,212,170,0.06);
+  }
+  .task.wip {
+    border-left-color: var(--wip);
+    background: rgba(255,179,71,0.06);
+  }
+  .task.todo {
+    border-left-color: var(--todo);
+    opacity: 0.6;
+  }
+
+  .task-title { font-weight: 500; color: var(--text); }
+  .task-badge {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .task-badge.done { background: rgba(0,212,170,0.15); color: var(--done); }
+  .task-badge.wip  { background: rgba(255,179,71,0.15);  color: var(--wip); }
+  .task-badge.todo { background: rgba(85,85,112,0.2);    color: var(--muted); }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-top: 14px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar {
+    position: fixed;
+    bottom: 0; left: 0;
+    height: 3px;
+    background: var(--accent);
+    transition: width 0.4s ease;
+    z-index: 200;
+  }
+
+  /* mermaid dark override */
+  .mermaid .node rect, .mermaid .node circle { fill: #1c1c27 !important; stroke: rgba(255,255,255,0.15) !important; }
+  .mermaid .label { color: #f0f0f8 !important; }
+  .mermaid .edgePath .path { stroke: rgba(255,255,255,0.3) !important; }
+
+  /* ── SLIDE 3A: APP STRUCTURE / DIRECTORY ── */
+  .dir-tree {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 28px;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 19px;
+    line-height: 2;
+    color: var(--text);
+    width: 100%;
+  }
+  .dir-tree .dir { color: var(--accent); font-weight: 700; }
+  .dir-tree .file { color: var(--text); }
+  .dir-tree .desc { color: var(--muted); font-family: 'Noto Sans KR', sans-serif; font-size: 15px; margin-left: 16px; }
+  .dir-tree .gitignore { color: var(--accent3); }
+
+  .layer-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    width: 100%;
+    margin-top: 16px;
+  }
+  .layer-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+  .layer-card .lc-icon { font-size: 30px; margin-bottom: 8px; }
+  .layer-card .lc-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .layer-card .lc-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .tech-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+  }
+  .tech-card-title {
+    font-size: 18px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  }
+  .tech-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 19px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tech-item:last-child { border-bottom: none; }
+  .tech-item .name { font-weight: 600; color: var(--text); }
+  .tech-item .desc { font-size: 15px; color: var(--muted); margin-left: auto; text-align: right; }
+
+  /* ── SLIDE 6: ADR ── */
+  .adr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .adr-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .adr-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .adr-title { font-size: 21px; font-weight: 700; color: var(--text); }
+  .adr-row { font-size: 15px; color: var(--muted); line-height: 1.6; }
+  .adr-row b { color: var(--text); display: block; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 2px; }
+
+  /* ── SLIDE 7: TRIAL & ERROR ── */
+  .te-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .te-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .te-problem { color: var(--accent3); font-size: 18px; font-weight: 700; }
+  .te-solution { color: var(--accent2); font-size: 18px; font-weight: 700; }
+  .te-detail { font-size: 18px; color: var(--muted); line-height: 1.6; }
+  .te-detail code {
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 15px;
+    color: var(--text);
+  }
+
+  /* ── SLIDE 8: SETUP/DEPLOY ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 0;
+    margin: 8px 0 24px 0;
+  }
+  .pipe-step {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    font-size: 18px;
+  }
+  .pipe-step .pn { font-size: 26px; margin-bottom: 6px; }
+  .pipe-step .pt { font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .pipe-step .pd { font-size: 13px; color: var(--muted); }
+  .pipe-arrow { color: var(--accent); font-size: 21px; padding: 0 8px; }
+
+  .checklist {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+  }
+  .check-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .check-item .ic { font-size: 18px; }
+
+  /* ── SLIDE 9: DEMO ── */
+  .demo-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .demo-step {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 22px;
+  }
+  .demo-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--accent);
+    min-width: 38px;
+  }
+  .demo-text .dt-title { font-size: 19px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .demo-text .dt-desc { font-size: 16px; color: var(--muted); }
+  .demo-time {
+    margin-left: auto;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    color: var(--accent2);
+    background: rgba(0,212,170,0.1);
+    border-radius: 6px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+
+  /* ── SLIDE 10: CLOSING ── */
+  .closing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+    margin-top: 24px;
+  }
+  .future-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 19px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="counter" id="counter">1 / 4</div>
+<div class="progress-bar" id="progress"></div>
+
+<button class="nav-btn" id="prev" onclick="go(-1)">‹</button>
+<button class="nav-btn" id="next" onclick="go(1)">›</button>
+
+<div class="slides">
+
+  <!-- ─── SLIDE 1: TITLE ─── -->
+  <div class="slide active" id="s1">
+    <div class="tag">🏋️ 최종발표</div>
+    <div class="title-main">Fit<span>Log</span> AI</div>
+    <div class="title-sub">AI 기반 운동 루틴 생성 &amp; 기록 앱 — 목표는 사용자가 직접 선택</div>
+    <div class="chips">
+      <div class="chip"><b>목표</b> 사용자 선택 (벌크업 · 다이어트 · 체력 유지)</div>
+      <div class="chip"><b>대상</b> 본인 (1인 사용자)</div>
+      <div class="chip"><b>스택</b> TypeScript · Express · Gemini API</div>
+      <div class="chip"><b>2022136038</b> 배주호</div>
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 2: VISION ─── -->
+  <div class="slide" id="s2">
+    <div class="slide-header">🎯 기획 — 비전 &amp; 문제 정의</div>
+
+    <div class="vision-grid">
+      <div class="vision-card problem">
+        <div class="vc-icon">😤</div>
+        <div class="vc-title">문제 — 나의 이야기</div>
+        <div class="vc-body">
+          헬스장에 가도 <strong>항상 같은 운동만</strong> 반복했다.<br>
+          새로운 운동을 시도해보고 싶지만 뭘 해야 할지 모르고,<br>
+          그러다 보니 점점 <strong>헬스 자체를 안 가게</strong> 됐다.<br><br>
+          PT는 월 수십만 원이라 부담스럽고,<br>
+          운동 기록은 직접 가지고 있고 싶은데<br>
+          관리할 방법이 없었다.
+        </div>
+      </div>
+      <div class="vision-card solution">
+        <div class="vc-icon">🤖</div>
+        <div class="vc-title">솔루션</div>
+        <div class="vc-body">
+          <strong>벌크업 · 다이어트 · 체력 유지</strong> 중<br>
+          목표를 선택하면 Gemini AI가<br>
+          새로운 1주 운동 루틴을 자동 생성.<br><br>
+          매번 같은 운동에서 벗어나<br>
+          <strong>다양한 루틴</strong>을 추천받고,<br>
+          <strong>점진적 과부하</strong>가 반영된 계획을 받아본다.
+        </div>
+      </div>
+    </div>
+
+    <div class="vision-stat">
+      <div class="stat-card">
+        <div class="stat-num a1">반복</div>
+        <div class="stat-label">매번 같은 운동만<br>→ 흥미 저하·이탈</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num a2">0원</div>
+        <div class="stat-label">PT 없이 AI로<br>새로운 루틴 추천</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num a3">1주</div>
+        <div class="stat-label">점진적 과부하 반영<br>맞춤 루틴 생성</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 3: ARCHITECTURE ─── -->
+  <div class="slide" id="s3">
+    <div class="slide-header">🏗️ 설계 — 시스템 아키텍처</div>
+
+    <div style="width:100%;display:flex;flex-direction:column;gap:0;align-items:center;margin-top:8px;">
+
+      <!-- 3개 박스 행 -->
+      <div style="display:grid;grid-template-columns:1fr 56px 1fr 56px 1fr;align-items:center;width:100%;gap:0;">
+
+        <!-- 박스 1: 사용자 -->
+        <div style="background:var(--card);border:1.5px solid rgba(108,99,255,0.5);border-radius:20px;padding:28px 20px;text-align:center;">
+          <div style="font-size: 42px;margin-bottom:10px;">👤</div>
+          <div style="font-size: 21px;font-weight:700;color:#f0f0f8;margin-bottom:6px;">사용자 (본인)</div>
+          <div style="font-size: 18px;color:var(--muted);line-height:1.6;">목표·경험·부위 선택<br>운동 무게 기록<br>루틴 저장/회차 관리</div>
+        </div>
+
+        <!-- 화살표 1 -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div style="font-size: 13px;color:var(--accent);font-weight:600;white-space:nowrap;">요청 →</div>
+          <div style="width:40px;height:2px;background:linear-gradient(to right,rgba(108,99,255,0.3),rgba(108,99,255,0.8));border-radius:2px;"></div>
+          <div style="font-size: 13px;color:var(--accent2);font-weight:600;white-space:nowrap;">← 결과</div>
+        </div>
+
+        <!-- 박스 2: FitLog AI 앱 -->
+        <div style="background:var(--card);border:1.5px solid rgba(108,99,255,0.8);border-radius:20px;padding:24px 16px;text-align:center;position:relative;">
+          <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size: 13px;font-weight:700;padding:3px 14px;border-radius:20px;white-space:nowrap;">FitLog AI 서버 (Express)</div>
+          <div style="font-size: 36px;margin-bottom:10px;">⚙️</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+            <div style="background:var(--surface);border-radius:10px;padding:8px 6px;font-size: 15px;color:var(--muted);">📝<br><span style="color:var(--text);font-weight:500;">입력 폼</span></div>
+            <div style="background:var(--surface);border-radius:10px;padding:8px 6px;font-size: 15px;color:var(--muted);">🧩<br><span style="color:var(--text);font-weight:500;">프롬프트 빌더</span></div>
+            <div style="background:var(--surface);border-radius:10px;padding:8px 6px;font-size: 15px;color:var(--muted);">🖼️<br><span style="color:var(--text);font-weight:500;">이미지 매핑</span></div>
+            <div style="background:var(--surface);border-radius:10px;padding:8px 6px;font-size: 15px;color:var(--muted);">📊<br><span style="color:var(--text);font-weight:500;">결과 렌더러</span></div>
+          </div>
+        </div>
+
+        <!-- 화살표 2 -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div style="font-size: 13px;color:var(--accent2);font-weight:600;white-space:nowrap;">← 루틴 JSON</div>
+          <div style="width:40px;height:2px;background:linear-gradient(to left,rgba(0,212,170,0.3),rgba(0,212,170,0.8));border-radius:2px;"></div>
+          <div style="font-size: 13px;color:var(--accent2);font-weight:600;white-space:nowrap;">프롬프트 →</div>
+        </div>
+
+        <!-- 박스 3: Gemini API -->
+        <div style="background:var(--card);border:1.5px solid rgba(0,212,170,0.5);border-radius:16px;padding:28px 20px;text-align:center;">
+          <div style="font-size: 42px;margin-bottom:10px;">🤖</div>
+          <div style="font-size: 21px;font-weight:700;color:#f0f0f8;margin-bottom:6px;">Gemini API</div>
+          <div style="font-size: 18px;color:var(--muted);line-height:1.6;">gemini-2.5-flash<br>1주 점진적 과부하<br>루틴 JSON 생성</div>
+        </div>
+      </div>
+
+      <!-- 저장소 행: 서버 ↔ JSON 파일 -->
+      <div style="display:grid;grid-template-columns:1fr 56px 1fr 56px 1fr;align-items:center;width:100%;gap:0;margin-top:18px;">
+        <div></div>
+        <div></div>
+        <!-- 양방향 화살표 -->
+        <div style="display:flex;justify-content:center;align-items:center;gap:6px;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="font-size: 13px;color:var(--wip);font-weight:600;white-space:nowrap;">읽기/쓰기 ↕</div>
+            <div style="width:2px;height:28px;background:linear-gradient(to bottom,rgba(255,179,71,0.3),rgba(255,179,71,0.8));border-radius:2px;"></div>
+          </div>
+        </div>
+        <div></div>
+        <div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 56px 1fr 56px 1fr;align-items:center;width:100%;gap:0;">
+        <div></div>
+        <div></div>
+        <!-- JSON 파일 박스 -->
+        <div style="background:var(--card);border:1.5px solid rgba(255,179,71,0.5);border-radius:16px;padding:18px 20px;text-align:center;">
+          <div style="font-size: 36px;margin-bottom:6px;">🗂️</div>
+          <div style="font-size: 21px;font-weight:700;color:#f0f0f8;">routines.json</div>
+          <div style="font-size: 15px;color:var(--muted);margin-top:4px;">fs.readFile / writeFile<br>최대 20개 루틴 저장</div>
+        </div>
+        <div></div>
+        <div></div>
+      </div>
+
+      <!-- 흐름 설명 한 줄 -->
+      <div style="margin-top:20px;display:flex;gap:10px;align-items:center;font-size: 18px;color:var(--muted);flex-wrap:wrap;justify-content:center;">
+        <span style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 14px;">① 목표·경험·부위·신체정보·요구사항 입력</span>
+        <span style="color:var(--accent);">→</span>
+        <span style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 14px;">② 프롬프트 구성 후 Gemini 호출</span>
+        <span style="color:var(--accent);">→</span>
+        <span style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 14px;">③ 이미지 매핑 후 표로 렌더링</span>
+        <span style="color:var(--accent);">→</span>
+        <span style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 14px;">④ routines.json에 저장 (요일 자동 반영)</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 3A: APP STRUCTURE / DIRECTORY ─── -->
+  <div class="slide" id="s3a">
+    <div class="slide-header">📁 앱 구조 — 디렉토리 &amp; 레이어</div>
+
+    <div class="dir-tree">
+c:\fit-logAI\<br>
+├── <span class="dir">docs\</span><span class="desc">— 기획·설계 문서 (PLANNING, WBS, ARCHITECTURE, ADR, SETUP)</span><br>
+├── <span class="dir">src\</span><br>
+│&nbsp;&nbsp;&nbsp;├── <span class="file">web.ts</span><span class="desc">— Express 서버 + 전체 UI (메인 엔트리)</span><br>
+│&nbsp;&nbsp;&nbsp;├── <span class="file">claude.ts</span><span class="desc">— Gemini API 호출 + 프롬프트 빌더</span><br>
+│&nbsp;&nbsp;&nbsp;├── <span class="file">db.ts</span><span class="desc">— routines.json 읽기/쓰기 (저장소 계층)</span><br>
+│&nbsp;&nbsp;&nbsp;├── <span class="file">types.ts</span><span class="desc">— TypeScript 타입 정의</span><br>
+│&nbsp;&nbsp;&nbsp;├── <span class="file">db.test.ts</span><span class="desc">— 단위 테스트 (저장/조회 검증)</span><br>
+│&nbsp;&nbsp;&nbsp;├── <span class="file">web.test.ts</span><span class="desc">— 통합 테스트 (GET / → 200)</span><br>
+│&nbsp;&nbsp;&nbsp;└── <span class="file">cli.ts / index.ts / display.ts</span><span class="desc">— 초기 CLI 시도, 현재 미사용</span><br>
+├── <span class="file">routines.json</span><span class="desc">— 저장된 루틴 + 수행 무게 기록 (자동 생성)</span><br>
+├── <span class="file">package.json</span> / <span class="file">tsconfig.json</span><span class="desc">— 프로젝트·빌드 설정</span><br>
+├── <span class="file">README.md</span> / <span class="file">AGENTS.md</span><span class="desc">— 프로젝트 설명 · AI 워크플로우 정책</span><br>
+├── <span class="gitignore">.env</span><span class="desc">— GEMINI_API_KEY (git 제외)</span><br>
+└── <span class="file">.env.example</span><span class="desc">— API 키 형식 예시</span>
+    </div>
+
+    <div class="layer-grid">
+      <div class="layer-card">
+        <div class="lc-icon">🖥️</div>
+        <div class="lc-title">Presentation</div>
+        <div class="lc-desc">web.ts — 입력 폼, 결과 화면 렌더링</div>
+      </div>
+      <div class="layer-card">
+        <div class="lc-icon">🧩</div>
+        <div class="lc-title">Application</div>
+        <div class="lc-desc">claude.ts — 프롬프트 구성, AI 응답 처리</div>
+      </div>
+      <div class="layer-card">
+        <div class="lc-icon">🗂️</div>
+        <div class="lc-title">Data</div>
+        <div class="lc-desc">db.ts — routines.json CRUD</div>
+      </div>
+      <div class="layer-card">
+        <div class="lc-icon">🧪</div>
+        <div class="lc-title">Test</div>
+        <div class="lc-desc">db.test.ts, web.test.ts — Jest + supertest</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 4: WBS ─── -->
+  <div class="slide" id="s4">
+    <div class="slide-header" style="margin-bottom:0">📋 WBS — 7주 진행 현황</div>
+
+    <div class="wbs-grid" style="grid-template-columns:repeat(4,1fr);gap:14px;">
+
+      <!-- WEEK 1 -->
+      <div class="week-col">
+        <div class="week-header" style="border-top:4px solid var(--done);font-size: 18px;">
+          1주차
+          <span style="font-size: 18px;">기반 세팅</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">프로젝트 초기 구조</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">Gemini API 연동</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">루틴 생성 프롬프트</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+      </div>
+
+      <!-- WEEK 2 -->
+      <div class="week-col">
+        <div class="week-header" style="border-top:4px solid var(--done);font-size: 18px;">
+          2주차
+          <span style="font-size: 18px;">입력 폼 설계</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">목표·경험·일수 선택</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">집중부위·신체정보</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">추가 요구사항 입력</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+      </div>
+
+      <!-- WEEK 3 -->
+      <div class="week-col">
+        <div class="week-header" style="border-top:4px solid var(--done);font-size: 18px;">
+          3주차
+          <span style="font-size: 18px;">분석·피드백 설계</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">점진적 과부하 설계</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">세트×횟수·휴식표시</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">총 시간/종목/세트</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+      </div>
+
+      <!-- WEEK 4 -->
+      <div class="week-col">
+        <div class="week-header" style="border-top:4px solid var(--done);font-size: 18px;">
+          4주차
+          <span style="font-size: 18px;">핵심기능</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">1주 루틴 JSON 생성</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">Express 웹 폼 구현</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">.env 환경변수 적용</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="wbs-grid" style="grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px;">
+
+      <!-- WEEK 5 -->
+      <div class="week-col">
+        <div class="week-header" style="border-top:4px solid var(--done);font-size: 18px;">
+          5주차
+          <span style="font-size: 18px;">저장·이력 관리</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">routines.json 저장</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">수행무게 기록·반영</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">이미지 매핑·다음주</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+      </div>
+
+      <!-- WEEK 6 -->
+      <div class="week-col">
+        <div class="week-header" style="border-top:4px solid var(--done);font-size: 18px;">
+          6주차
+          <span style="font-size: 18px;">문서·테스트</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">README·AGENTS.md</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">ADR·아키텍처 문서</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">단위·통합테스트 PASS</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+      </div>
+
+      <!-- WEEK 7 -->
+      <div class="week-col">
+        <div class="week-header" style="border-top:4px solid var(--accent);font-size: 18px;">
+          7주차
+          <span style="font-size: 18px;color:var(--accent);">최종 발표 ← 오늘</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">GitHub 문서 push</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">발표 슬라이드 완성</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+        <div class="task done" style="font-size: 19px;">
+          <div class="task-title">시연 데모 준비</div>
+          <span class="task-badge done">✓ 완료</span>
+        </div>
+      </div>
+
+      <!-- 빈 칸 - 범례 -->
+      <div class="week-col" style="justify-content:center;align-items:center;display:flex;">
+        <div class="legend" style="margin-top:0;">
+          <div class="legend-item" style="font-size: 21px;"><div class="legend-dot" style="width:14px;height:14px;background:var(--done)"></div>전체 완료 (7/7주)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 5: TECH STACK ─── -->
+  <div class="slide" id="s5">
+    <div class="slide-header">🧰 적용 기술 — Tech Stack</div>
+
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="tech-card-title">BACKEND</div>
+        <div class="tech-item"><span class="name">Node.js + Express</span><span class="desc">웹 서버 / 라우팅</span></div>
+        <div class="tech-item"><span class="name">TypeScript</span><span class="desc">타입 안정성</span></div>
+        <div class="tech-item"><span class="name">dotenv</span><span class="desc">환경변수 관리</span></div>
+        <div class="tech-item"><span class="name">Node fs 모듈</span><span class="desc">routines.json 읽기/쓰기</span></div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-title">AI</div>
+        <div class="tech-item"><span class="name">Gemini API</span><span class="desc">gemini-2.5-flash</span></div>
+        <div class="tech-item"><span class="name">@google/generative-ai</span><span class="desc">SDK</span></div>
+        <div class="tech-item"><span class="name">프롬프트 설계</span><span class="desc">점진적 과부하 반영</span></div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-title">FRONTEND / 기타</div>
+        <div class="tech-item"><span class="name">HTML / CSS</span><span class="desc">서버 렌더링, 다크 테마</span></div>
+        <div class="tech-item"><span class="name">운동별 이미지 에셋</span><span class="desc">머신·동작 사전 제작 매핑</span></div>
+        <div class="tech-item"><span class="name">Git / GitHub</span><span class="desc">버전 관리, 잔디</span></div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;font-size: 18px;color:var(--muted);line-height:1.7;">
+      💡 <strong style="color:var(--text)">선택 이유</strong> — 카드 등록 없이 무료로 사용 가능한 <strong style="color:var(--text)">Gemini API (2.5-flash)</strong>를 AI 엔진으로 선택(ADR-1).
+      응답 토큰 절약을 위해 <strong style="color:var(--text)">1주 단위 루틴 생성</strong> 방식 채택(ADR-2),
+      1인 사용 환경에 맞춰 <strong style="color:var(--text)">SQLite 대신 JSON 파일(routines.json)</strong> 저장 방식으로 설계(ADR-3).
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 6: ADR ─── -->
+  <div class="slide" id="s6">
+    <div class="slide-header">📌 ADR — 주요 의사결정 기록</div>
+
+    <div class="adr-grid">
+      <div class="adr-card">
+        <div class="adr-num">ADR-1</div>
+        <div class="adr-title">Gemini API 선택</div>
+        <div class="adr-row"><b>배경</b>유료 LLM API는 사용량 기반 과금, 결제수단 등록 필요해 학습용 프로젝트엔 부담</div>
+        <div class="adr-row"><b>결정</b>카드 등록 없이 무료 발급 가능한 Gemini API (gemini-2.5-flash) 사용</div>
+        <div class="adr-row"><b>결과</b>비용 부담 없이 개발·데모 가능, 호출 모듈 분리로 교체 용이</div>
+      </div>
+      <div class="adr-card">
+        <div class="adr-num">ADR-2</div>
+        <div class="adr-title">1주 루틴 생성 방식</div>
+        <div class="adr-row"><b>배경</b>4주 플랜 일괄 생성 시 응답 토큰 ↑, 무료 티어 제한 우려</div>
+        <div class="adr-row"><b>결정</b>1회 호출당 1주 점진적 과부하 루틴 생성</div>
+        <div class="adr-row"><b>결과</b>응답 속도 개선, 추후 반복 호출로 다주차 확장 가능</div>
+      </div>
+      <div class="adr-card">
+        <div class="adr-num">ADR-3</div>
+        <div class="adr-title">SQLite 대신 JSON 파일 저장</div>
+        <div class="adr-row"><b>배경</b>1인 사용 프로젝트에 SQLite 등 별도 DB 설치·스키마 관리는 과한 엔지니어링</div>
+        <div class="adr-row"><b>결정</b><code>routines.json</code> 파일에 fs.readFileSync/writeFileSync로 읽고 쓰기 (최대 20개, 오래된 것 자동 삭제)</div>
+        <div class="adr-row"><b>결과</b>설치 없이 즉시 동작, 동시접속 없는 1인 환경에 적합. 검색·동시성 필요해지면 SQLite로 전환 가능</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 7: TRIAL & ERROR + DEV ENV ─── -->
+  <div class="slide" id="s7">
+    <div class="slide-header">🔧 구현 시행착오 &amp; 개발 환경</div>
+
+    <div class="te-grid">
+      <div class="te-card">
+        <div class="te-problem">⚠️ 문제 1 — API 모델 404 에러</div>
+        <div class="te-detail">
+          <code>gemini-1.5-flash</code> 모델이 v1beta에서 404 Not Found.
+          AI 모델 버전이 빠르게 바뀌어 사용 가능한 모델명을 직접 확인해야 했음.
+        </div>
+        <div class="te-solution">✅ 해결 — ListModels로 사용 가능 모델 확인 후 <code>gemini-2.5-flash</code>로 교체</div>
+      </div>
+      <div class="te-card">
+        <div class="te-problem">⚠️ 문제 2 — 다음 주 루틴 설정 미반영</div>
+        <div class="te-detail">
+          "다음 주 루틴 생성"에서 목표·경험·부위 등을 새로 선택해도
+          반영되지 않음. 이전 루틴의 설정값을 그대로 복사해 새 폼
+          데이터를 덮어쓰는 구조가 원인.
+        </div>
+        <div class="te-solution">✅ 해결 — 새로 입력한 폼 값을 우선 적용하고, 비어있는 값만 이전 루틴에서 채워오도록 로직 수정</div>
+      </div>
+      <div class="te-card">
+        <div class="te-problem">⚠️ 문제 3 — 추가 요구사항 미반영</div>
+        <div class="te-detail">
+          "무릎 부상으로 스쿼트 대신 다른 운동" 같은 자유 텍스트 요구사항을
+          입력해도 AI가 무시하고 기존 운동을 그대로 추천하는 경우 발생.
+        </div>
+        <div class="te-solution">✅ 해결 — 프롬프트에서 추가 요구사항을 별도 섹션으로 분리하고 "반드시 반영" 문구로 강조</div>
+      </div>
+      <div class="te-card">
+        <div class="te-problem">💻 개발 환경</div>
+        <div class="te-detail">
+          <strong style="color:var(--text)">OS</strong> Windows + VS Code 통합 터미널<br>
+          <strong style="color:var(--text)">AI 도구</strong> Claude Code (CLI 에이전트)<br>
+          <strong style="color:var(--text)">버전관리</strong> Git + GitHub<br>
+          <strong style="color:var(--text)">환경변수</strong> .env + .env.example
+        </div>
+        <div class="te-solution">✨ AI 활용 정책·코딩 규칙·워크플로우를 <code>AGENTS.md</code> 한 파일로 통합 관리</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 8: SETUP/DEPLOY/TEST ─── -->
+  <div class="slide" id="s8">
+    <div class="slide-header">🚀 빌드 · 배포 · 테스트 · 설치 가이드</div>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pn">📥</div>
+        <div class="pt">Clone & Install</div>
+        <div class="pd">git clone → npm install</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pn">🔑</div>
+        <div class="pt">환경변수 설정</div>
+        <div class="pd">.env.example → .env 복사 후 키 입력</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pn">🔨</div>
+        <div class="pt">빌드 / 실행</div>
+        <div class="pd">npm run build / npm run web</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pn">☁️</div>
+        <div class="pt">배포</div>
+        <div class="pd">GitHub에 소스코드 + 문서 push</div>
+      </div>
+    </div>
+
+    <div class="checklist">
+      <div class="check-item"><span class="ic">✅</span>README.md에 설치·실행 가이드 명시 (git clone ~ npm run web)</div>
+      <div class="check-item"><span class="ic">✅</span>환경변수: GEMINI_API_KEY, PORT — .env.example 제공</div>
+      <div class="check-item"><span class="ic">✅</span>단위 테스트 (db.test.ts) — 루틴 저장/조회 일관성 검증, PASS</div>
+      <div class="check-item"><span class="ic">✅</span>통합 테스트 (web.test.ts) — GET / → 200 응답 확인 (supertest), PASS</div>
+      <div class="check-item"><span class="ic">✅</span>코드 품질 — TypeScript 타입체크, types.ts 공통 타입 정의, db·claude·web 모듈 분리</div>
+      <div class="check-item"><span class="ic">✅</span>성능 최적화 — 1회 호출당 1주 루틴만 생성하여 API 토큰 최소화, 응답속도 개선</div>
+    </div>
+
+    <div style="margin-top:14px;text-align:center;">
+      <img src="test-result.png" alt="npm test 실행 결과 - 2 passed" style="max-width:480px;width:100%;border-radius:10px;border:1px solid var(--border);">
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 9: DEMO ─── -->
+  <div class="slide" id="s9">
+    <div class="slide-header">🎬 시연 데모</div>
+
+    <div style="width:100%;display:flex;justify-content:center;align-items:center;height:100%;">
+      <video controls preload="metadata" style="max-width:900px;width:100%;border-radius:14px;border:1px solid var(--border);background:#000;">
+        <source src="demo.mp4" type="video/mp4">
+        브라우저가 video 태그를 지원하지 않습니다.
+      </video>
+    </div>
+  </div>
+
+  <!-- ─── SLIDE 10: CLOSING ─── -->
+  <div class="slide" id="s10">
+    <div class="slide-header">🚀 마무리 &amp; 향후 발전 방향</div>
+
+    <div class="vision-card solution" style="width:100%;">
+      <div class="vc-icon">🎯</div>
+      <div class="vc-title">활용 방안 및 기대 효과</div>
+      <div class="vc-body">
+        매번 같은 운동만 반복하던 헬스 루틴에서 벗어나, PT 비용 없이
+        <strong>새로운 1주 루틴</strong>을 즉시 받아본다. 목표(벌크업·다이어트·
+        체력유지)에 맞는 점진적 과부하 루틴으로 운동 흥미를 유지하고,
+        "오늘 뭐 하지?"라는 고민을 해결한다.
+      </div>
+    </div>
+
+    <div class="closing-grid">
+      <div class="future-item">📅 <strong>4주 플랜 확장</strong> — 1주 루틴을 누적해 점진적 과부하 장기화</div>
+      <div class="future-item">🥗 <strong>식단 추천</strong> — 칼로리·단백질 목표 기반 식단 제안</div>
+      <div class="future-item">🗃️ <strong>SQLite 전환</strong> — 데이터 늘어나면 검색·동시성 위해 DB 전환</div>
+      <div class="future-item">🧪 <strong>테스트 커버리지 확대</strong> — 프롬프트 빌더·이미지 매핑 테스트 추가</div>
+    </div>
+
+    <div style="margin-top:24px;text-align:center;font-size: 19px;color:var(--muted);">
+      감사합니다 — <strong style="color:var(--accent)">2022136038 배주호</strong>
+    </div>
+  </div>
+
+</div><!-- /slides -->
+
+<div class="nav" id="dotNav"></div>
+
+<script>
+  const total = 11;
+  let cur = 0;
+
+  // dots
+  const nav = document.getElementById('dotNav');
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    nav.appendChild(d);
+  }
+
+  function goTo(n) {
+    document.querySelectorAll('.slide')[cur].classList.remove('active');
+    document.querySelectorAll('.dot')[cur].classList.remove('active');
+    cur = (n + total) % total;
+    document.querySelectorAll('.slide')[cur].classList.add('active');
+    document.querySelectorAll('.dot')[cur].classList.add('active');
+    document.getElementById('counter').textContent = (cur + 1) + ' / ' + total;
+    document.getElementById('progress').style.width = ((cur + 1) / total * 100) + '%';
+  }
+
+  function go(d) { goTo(cur + d); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') go(1);
+    if (e.key === 'ArrowLeft') go(-1);
+  });
+
+  // init progress
+  document.getElementById('progress').style.width = (1 / total * 100) + '%';
+
+  // mermaid
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1c1c27',
+      primaryTextColor: '#f0f0f8',
+      primaryBorderColor: 'rgba(255,255,255,0.15)',
+      lineColor: 'rgba(255,255,255,0.3)',
+      secondaryColor: '#13131a',
+      tertiaryColor: '#0a0a0f',
+      fontSize: '14px',
+      fontFamily: 'Noto Sans KR, sans-serif',
+    },
+    flowchart: { curve: 'basis', padding: 20 }
+  });
+</script>
+</body>
+</html>
